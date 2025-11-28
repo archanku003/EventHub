@@ -95,16 +95,90 @@ const Events = () => {
       toast({ title: "Please log in to register for events." });
       return;
     }
-    const { error } = await supabase
+    // generate a ticket id and QR code (data URL)
+    // Use browser `crypto.randomUUID()` when available to avoid adding an external dependency.
+    const ticketId =
+      typeof crypto !== "undefined" && typeof (crypto as any).randomUUID === "function"
+        ? (crypto as any).randomUUID()
+        : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    let qrDataUrl: string | null = null;
+    try {
+      const payload = JSON.stringify({ ticketId, eventId, userId: user.id });
+      // Dynamically import `qrcode` to avoid Vite static import-analysis failures
+      const qrcodeModule = await import("qrcode");
+      const QRCodeLib = (qrcodeModule as any).default ?? qrcodeModule;
+      if (typeof QRCodeLib.toDataURL === "function") {
+        qrDataUrl = await QRCodeLib.toDataURL(payload);
+      } else {
+        qrDataUrl = null;
+      }
+    } catch (err) {
+      console.error("Failed to generate QR code (dynamic import)", err);
+      qrDataUrl = null;
+    }
+
+    // Insert and return the inserted registration so we can confirm ticket fields are stored
+    const { data: inserted, error: insertError } = await supabase
       .from("registrations")
       .insert([
-        { user_id: user.id, event_id: eventId }
-      ] as any);
-    if (error) {
-      toast({ title: "Registration failed", description: error.message, variant: "destructive" });
+        {
+          user_id: user.id,
+          event_id: eventId,
+          ticket_id: ticketId,
+          ticket_qr: qrDataUrl,
+          ticket_issued_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single();
+
+    if (insertError) {
+      toast({ title: "Registration failed", description: insertError.message, variant: "destructive" });
     } else {
+      console.log("Inserted registration:", inserted);
       toast({ title: "Registered!", description: "You have registered for the event." });
       setRegistrations((prev) => [...prev, eventId]);
+      try {
+        // notify other parts of the app (Dashboard) to refresh registrations
+        window.dispatchEvent(new CustomEvent("registrations:changed", { detail: inserted }));
+      } catch (e) {
+        // ignore in non-browser environments
+      }
+
+      // If QR wasn't generated, attempt background QR generation and update the registration
+      if (inserted && !inserted.ticket_qr) {
+        const regId = inserted.id;
+        const ticketIdStored = inserted.ticket_id || ticketId;
+        // run retries in background (no await)
+        (async function retryGenerate(attempt = 1) {
+          try {
+            const payload = JSON.stringify({ ticketId: ticketIdStored, eventId, userId: user.id });
+            const qrcodeModule = await import("qrcode");
+            const QRCodeLib = (qrcodeModule as any).default ?? qrcodeModule;
+            if (QRCodeLib && typeof QRCodeLib.toDataURL === "function") {
+              const qr = await QRCodeLib.toDataURL(payload);
+              const { error: updateErr } = await supabase
+                .from("registrations")
+                .update({ ticket_qr: qr })
+                .eq("id", regId);
+              if (!updateErr) {
+                console.log("Backfilled QR for registration", regId);
+                // notify dashboard to refresh
+                try { window.dispatchEvent(new CustomEvent("registrations:changed", { detail: { id: regId, ticket_qr: qr } })); } catch {}
+                return;
+              }
+            }
+          } catch (err) {
+            console.warn("QR retry attempt", attempt, "failed:", err);
+          }
+          if (attempt < 3) {
+            const delay = 1000 * Math.pow(2, attempt - 1);
+            setTimeout(() => retryGenerate(attempt + 1), delay);
+          } else {
+            console.warn("QR generation retry exhausted for registration", regId);
+          }
+        })();
+      }
     }
   };
 

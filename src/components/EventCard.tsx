@@ -81,6 +81,8 @@ type EventCardProps = {
   isAdmin?: boolean;
   onDelete?: () => void;
   onUpdate?: (editEvent: any, closeDialog: () => void) => void;
+  ticketQr?: string | null;
+  ticketId?: string | null;
 };
 
 const EventCard: React.FC<EventCardProps> = ({
@@ -101,6 +103,8 @@ const EventCard: React.FC<EventCardProps> = ({
   isAdmin,
   onDelete,
   onUpdate,
+  ticketQr,
+  ticketId,
 }) => {
   // Dialog state
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -121,6 +125,12 @@ const EventCard: React.FC<EventCardProps> = ({
     id: id,
   });
 
+  const [showTicket, setShowTicket] = useState(false);
+
+  // Normalize incoming props to avoid whitespace/case issues
+  const normalizedStatus = (status || "").toString().trim().toLowerCase();
+  const registered = !!isRegistered;
+
   const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // prevent opening when clicking interactive elements
     if ((e.target as HTMLElement).closest("button")) return;
@@ -138,27 +148,27 @@ const EventCard: React.FC<EventCardProps> = ({
   };
 
   const getStatusBadge = () => {
-    if (status === "upcoming") {
+    if (normalizedStatus === "upcoming") {
       return (
         <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Upcoming</span>
       );
     }
-    if (status === "ongoing") {
+    if (normalizedStatus === "ongoing") {
       return (
         <span className="px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">Ongoing</span>
       );
     }
-    if (status === "completed") {
+    if (normalizedStatus === "completed") {
       return (
         <span className="px-3 py-1 rounded-full bg-gray-200 text-gray-600 text-xs font-medium">Completed</span>
       );
     }
-    if (status === "today") {
+    if (normalizedStatus === "today") {
       return (
         <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Today</span>
       );
     }
-    if (status === "tomorrow") {
+    if (normalizedStatus === "tomorrow") {
       return (
         <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Tomorrow</span>
       );
@@ -210,24 +220,9 @@ const EventCard: React.FC<EventCardProps> = ({
             {/* Actions for non-admin users */}
             {!isAdmin && (
               <div>
-                {(status === "ongoing" || status === "today" || status === "completed") ? (
-                  <div className="flex flex-col items-center justify-center mb-2">
-                    <Button
-                      className="w-full bg-gradient-hero opacity-50 cursor-not-allowed relative"
-                      disabled
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Register Now
-                      <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" strokeWidth="3" className="text-red-600 drop-shadow-lg">
-                          <circle cx="12" cy="12" r="10" stroke="red" strokeWidth="3" fill="none" />
-                          <line x1="6" y1="6" x2="18" y2="18" stroke="red" strokeWidth="3" />
-                        </svg>
-                      </span>
-                    </Button>
-                  </div>
-                ) : (status === "upcoming" || status === "tomorrow") ? (
-                  isRegistered ? (
+                {registered ? (
+                  // Registered users: show Cancel Registration (enabled only for upcoming/tomorrow)
+                  (normalizedStatus === "upcoming" || normalizedStatus === "tomorrow") ? (
                     <>
                       <Button
                         className="w-full bg-gradient-hero hover:opacity-90 transition-opacity"
@@ -263,32 +258,66 @@ const EventCard: React.FC<EventCardProps> = ({
                       </Dialog>
                     </>
                   ) : (
-                    <>
-                      <>
-                        <Button
-                          className="w-full bg-gradient-hero hover:opacity-90 transition-opacity"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setStudentRegOpen(true);
-                          }}
-                        >
-                          Register Now
-                        </Button>
-
-                        <StudentRegistration
-                          open={studentRegOpen}
-                          setOpen={setStudentRegOpen}
-                          eventName={name}
-                          firstTimeUser={isFirstTime}
-                          onRegistered={() => {
-                            // after successful student save, continue with event registration
-                            onRegister && onRegister();
-                          }}
-                        />
-                      </>
-                    </>
+                    // Registered but cannot cancel now: show disabled Cancel with blocked icon
+                    <div className="flex flex-col items-center justify-center mb-2">
+                      <Button
+                        className="w-full bg-gradient-hero opacity-50 cursor-not-allowed relative"
+                        disabled
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Cancel Registration
+                        <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" strokeWidth="3" className="text-red-600 drop-shadow-lg">
+                            <circle cx="12" cy="12" r="10" stroke="red" strokeWidth="3" fill="none" />
+                            <line x1="6" y1="6" x2="18" y2="18" stroke="red" strokeWidth="3" />
+                          </svg>
+                        </span>
+                      </Button>
+                    </div>
                   )
-                ) : null}
+                ) : (
+                  // Not registered: show Register Now when allowed, otherwise disabled Register
+                  (normalizedStatus === "upcoming" || normalizedStatus === "tomorrow") ? (
+                    <>
+                      <Button
+                        className="w-full bg-gradient-hero hover:opacity-90 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setStudentRegOpen(true);
+                        }}
+                      >
+                        Register Now
+                      </Button>
+
+                      <StudentRegistration
+                        open={studentRegOpen}
+                        setOpen={setStudentRegOpen}
+                        eventName={name}
+                        firstTimeUser={isFirstTime}
+                        onRegistered={() => {
+                          // after successful student save, continue with event registration
+                          onRegister && onRegister();
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center mb-2">
+                      <Button
+                        className="w-full bg-gradient-hero opacity-50 cursor-not-allowed relative"
+                        disabled
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Register Now
+                        <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" strokeWidth="3" className="text-red-600 drop-shadow-lg">
+                            <circle cx="12" cy="12" r="10" stroke="red" strokeWidth="3" fill="none" />
+                            <line x1="6" y1="6" x2="18" y2="18" stroke="red" strokeWidth="3" />
+                          </svg>
+                        </span>
+                      </Button>
+                    </div>
+                  )
+                )}
               </div>
             )}
 
@@ -451,25 +480,53 @@ const EventCard: React.FC<EventCardProps> = ({
               <MapPin className="h-4 w-4" />
               <span>{venue}</span>
             </div>
+
+            {isRegistered && (
+              (ticketQr || ticketId) ? (
+                <div className="mt-3">
+                  <Button
+                    className="w-full bg-gradient-hero"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowTicket(true);
+                    }}
+                  >
+                    View Ticket
+                  </Button>
+
+                  <Dialog open={showTicket} onOpenChange={setShowTicket}>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Your Ticket</DialogTitle>
+                        <DialogDescription>Show this QR at check-in.</DialogDescription>
+                      </DialogHeader>
+                      <div className="flex flex-col items-center gap-3">
+                        {ticketQr ? (
+                          <img src={ticketQr} alt="Ticket QR" className="w-64 h-64 object-contain" />
+                        ) : (
+                          <div className="text-sm text-muted-foreground">Ticket not available</div>
+                        )}
+                        {ticketId && <div className="text-xs text-muted-foreground">Ticket ID: {ticketId}</div>}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <Button className="w-full opacity-60 cursor-not-allowed" disabled>
+                    Ticket pending
+                  </Button>
+                  <div className="text-xs text-muted-foreground mt-2">Ticket is being generated — check back shortly.</div>
+                </div>
+              )
+            )}
           </div>
 
           {/* Registration logic for details dialog (student only) */}
           {!isAdmin ? (
             <div className="mt-4">
-              {status === "completed" ? (
-                <div className="flex flex-col items-center justify-center mb-2">
-                  <span className="w-full text-center text-gray-600 text-sm font-semibold py-2 px-4 bg-gray-200 rounded" style={{ maxWidth: '100%' }}>
-                    Registration Closed – Event Completed
-                  </span>
-                </div>
-              ) : (status === "ongoing" || status === "today") ? (
-                <div className="flex flex-col items-center justify-center mb-2">
-                  <span className="w-full text-center text-red-600 text-sm font-semibold py-2 px-4 bg-red-100 rounded" style={{ maxWidth: '100%' }}>
-                    Registration Closed
-                  </span>
-                </div>
-              ) : (status === "upcoming" || status === "tomorrow") ? (
-                isRegistered ? (
+              {registered ? (
+                (normalizedStatus === "upcoming" || normalizedStatus === "tomorrow") ? (
                   <>
                     <Button
                       className="w-full bg-gradient-hero hover:opacity-90 transition-opacity"
@@ -504,27 +561,59 @@ const EventCard: React.FC<EventCardProps> = ({
                     </Dialog>
                   </>
                 ) : (
-                  <>
-                    <>
-                      <Button
-                        className="w-full bg-gradient-hero hover:opacity-90 transition-opacity"
-                        onClick={handleRegisterClick}
-                      >
-                        Register Now
-                      </Button>
-
-                      <StudentRegistration
-                        open={studentRegOpen}
-                        setOpen={setStudentRegOpen}
-                        eventName={name}
-                        onRegistered={() => {
-                          onRegister && onRegister();
-                        }}
-                      />
-                    </>
-                  </>
+                  <div className="flex flex-col items-center justify-center mb-2">
+                    <Button
+                      className="w-full bg-gradient-hero opacity-50 cursor-not-allowed relative"
+                      disabled
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Cancel Registration
+                      <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" strokeWidth="3" className="text-red-600 drop-shadow-lg">
+                          <circle cx="12" cy="12" r="10" stroke="red" strokeWidth="3" fill="none" />
+                          <line x1="6" y1="6" x2="18" y2="18" stroke="red" strokeWidth="3" />
+                        </svg>
+                      </span>
+                    </Button>
+                  </div>
                 )
-              ) : null}
+              ) : (
+                (normalizedStatus === "upcoming" || normalizedStatus === "tomorrow") ? (
+                  <>
+                    <Button
+                      className="w-full bg-gradient-hero hover:opacity-90 transition-opacity"
+                      onClick={handleRegisterClick}
+                    >
+                      Register Now
+                    </Button>
+
+                    <StudentRegistration
+                      open={studentRegOpen}
+                      setOpen={setStudentRegOpen}
+                      eventName={name}
+                      onRegistered={() => {
+                        onRegister && onRegister();
+                      }}
+                    />
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center mb-2">
+                    <Button
+                      className="w-full bg-gradient-hero opacity-50 cursor-not-allowed relative"
+                      disabled
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Register Now
+                      <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" strokeWidth="3" className="text-red-600 drop-shadow-lg">
+                          <circle cx="12" cy="12" r="10" stroke="red" strokeWidth="3" fill="none" />
+                          <line x1="6" y1="6" x2="18" y2="18" stroke="red" strokeWidth="3" />
+                        </svg>
+                      </span>
+                    </Button>
+                  </div>
+                )
+              )}
             </div>
           ) : (
             <div className="w-full mt-4">

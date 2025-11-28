@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import EventCard from "@/components/EventCard";
+import { getEventStatus } from "./Events";
 
 function formatDate(dateStr: string) {
   const date = new Date(dateStr);
@@ -45,27 +46,44 @@ const Dashboard = () => {
     }
   };
 
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      // Fetch profile
-      const { data: profileData } = await supabase.from("users").select("*").eq("id", user.id).single();
-      setProfile(profileData);
-
-      // Fetch registrations with event details
-      const { data: regData } = await supabase
-        .from("registrations")
-        .select("*, event:events(*)")
-        .eq("user_id", user.id);
-      setRegistrations(regData || []);
+  // Centralized fetch so other parts of the app can trigger a refresh
+  const fetchDashboard = async () => {
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
       setLoading(false);
-    };
+      return;
+    }
+    // Fetch profile
+    const { data: profileData } = await supabase.from("users").select("*").eq("id", user.id).single();
+    setProfile(profileData);
+
+    // Fetch registrations with explicit ticket fields and event details
+    const { data: regData } = await supabase
+      .from("registrations")
+      .select("ticket_id, ticket_qr, ticket_issued_at, event:events(*)")
+      .eq("user_id", user.id);
+    // Normalize shape and ensure event is present
+    const mapped = (regData || []).map((r: any) => ({
+      ticket_id: r.ticket_id,
+      ticket_qr: r.ticket_qr,
+      ticket_issued_at: r.ticket_issued_at,
+      event: r.event || r["event"],
+    }));
+    setRegistrations(mapped);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    // initial fetch
     fetchDashboard();
+
+    // listen for registration changes (e.g., after registering in Events page)
+    const handler = () => {
+      fetchDashboard();
+    };
+    window.addEventListener("registrations:changed", handler as EventListener);
+    return () => window.removeEventListener("registrations:changed", handler as EventListener);
   }, []);
 
   return (
@@ -99,7 +117,10 @@ const Dashboard = () => {
                       time={formatTimeRange(reg.event.time, reg.event.end_time)}
                       collegeName={reg.event.university_name || ""}
                       image={reg.event.image || ""}
-                      status={"upcoming"}
+                      description={reg.event.description || ""}
+                      ticketQr={reg.ticket_qr}
+                      ticketId={reg.ticket_id}
+                      status={getEventStatus(reg.event.date, reg.event.time, reg.event.end_time)}
                       isRegistered
                       onCancel={() => handleCancel(reg.event.id)}
                     />
