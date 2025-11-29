@@ -11,40 +11,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Setup Node
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: "npm"
+          node-version: 18
 
-      # Install dependencies (inside EventHub-main folder)
       - name: Install dependencies
-        working-directory: ./EventHub-main
-        run: |
-          rm -rf node_modules package-lock.json
-          npm install --prefer-online
+        run: npm ci
 
-      # Run tests only if test script exists
       - name: Run tests (if exists)
-        working-directory: ./EventHub-main
         run: npm run test --if-present
 
-      # Build the Next.js app
-      - name: Build Next.js app
-        working-directory: ./EventHub-main
+      - name: Build the project
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
-      # Upload build artifacts (.next folder)
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: next-build
-          path: EventHub-main/.next
+          name: build-output
+          path: dist
