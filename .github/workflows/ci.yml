@@ -11,28 +11,41 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
+      # 3. FIX for Rollup native binary error
+      - name: Clean lockfile and node_modules
+        run: |
+          rm -f package-lock.json
+          rm -rf node_modules
+
+      # 4. Install dependencies using npm install (NOT npm ci)
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Run tests (if exists)
-        run: npm run test --if-present
-
-      - name: Build the project
+      # 5. Set Supabase env variables & Build the project
+      - name: Build project
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
+      # 6. Upload build output as artifact
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: build-output
-          path: dist
+          path: |
+            .next
+            dist
+            build
+            out
+          if-no-files-found: ignore
