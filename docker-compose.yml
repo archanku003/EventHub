@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # Production image: builds the app and serves it with nginx
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY:-}
+    image: eventhub:latest
+    ports:
+      - "80:80"
+    environment:
+      # runtime env here are mostly informational; Vite bakes VITE_ vars at build time
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
+    restart: unless-stopped
+
+  # Optional development service: runs Vite dev server with source mounted
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: eventhub-dev:latest
+    command: sh -c "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./:/app:rw
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
+    working_dir: /app
+    stdin_open: true
+    tty: true
