@@ -187,9 +187,9 @@ const EventCard: React.FC<EventCardProps> = ({
         <div className="absolute top-3 right-3 z-10">{getStatusBadge()}</div>
 
         {/* Image */}
-        <div className="relative h-48 overflow-hidden bg-gradient-card">
+        <div className="relative h-56 overflow-hidden bg-gradient-card">
           {image && image.trim() !== "" && (
-            <img src={image} alt={name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            <img src={image} alt={name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           )}
         </div>
 
@@ -463,19 +463,24 @@ const EventCard: React.FC<EventCardProps> = ({
           </DialogHeader>
 
           <div className="space-y-3 mt-2">
+            {/* Image immediately after title & description */}
+            {image && <img src={image} alt={name} className="w-full h-56 object-cover rounded-md" />}
+
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               <span>{collegeName}</span>
             </div>
-            {image && <img src={image} alt={name} className="w-full h-56 object-cover rounded-md" />}
+
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span>{formattedDate}</span>
             </div>
+
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
               <span>{time}</span>
             </div>
+
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4" />
               <span>{venue}</span>
