@@ -56,6 +56,7 @@ const Home = () => {
     }
   };
   const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [registrations, setRegistrations] = useState<string[]>([]); // event ids
   const [events, setEvents] = useState<any[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
@@ -63,11 +64,18 @@ const Home = () => {
 
   // Fetch user
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
-    });
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        setUser(data.session?.user ?? null);
+      } finally {
+        setAuthLoading(false);
+      }
+    })();
+
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      setAuthLoading(false);
     });
     return () => {
       listener.subscription.unsubscribe();
@@ -145,15 +153,17 @@ const Home = () => {
               discover, register, and participate in amazing college events.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/signup">
-                <Button
-                  size="lg"
-                  className="bg-gradient-hero hover:opacity-90 transition-opacity text-lg px-8 shadow-glow"
-                >
-                  Create Account
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
+              {!authLoading && !user && (
+                <Link to="/signup">
+                  <Button
+                    size="lg"
+                    className="bg-gradient-hero hover:opacity-90 transition-opacity text-lg px-8 shadow-glow"
+                  >
+                    Create Account
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+              )}
               <Link to="/events">
                 <Button
                   size="lg"
@@ -229,7 +239,7 @@ const Home = () => {
       </section>
 
       {/* Conditional Section */}
-      { !user && (
+      {!user && (
         <>
           {/* Features Section */}
           <section className="py-16 bg-muted/30">
