@@ -102,8 +102,23 @@ export default function StudentRegistration({ open, setOpen, eventName, onRegist
         const { data } = await supabase.auth.getUser();
         const user = data?.user;
         const meta: any = (user as any)?.user_metadata ?? {};
-        const saved_roll = meta?.saved_roll;
-        const saved_email = meta?.saved_email;
+        let saved_roll = meta?.saved_roll;
+        let saved_email = meta?.saved_email;
+
+        // Fallback: if no server metadata, try reading localStorage (guest flow)
+        if (!saved_roll && !saved_email) {
+          try {
+            const raw = localStorage.getItem("eventhub_saved_contact");
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              saved_roll = saved_roll || parsed?.roll || "";
+              saved_email = saved_email || parsed?.email || "";
+            }
+          } catch (e) {
+            // ignore parse errors
+          }
+        }
+
         if (saved_roll) setLookupRoll(saved_roll);
         if (saved_email) setLookupEmail(saved_email);
         if (saved_roll || saved_email) setUseSaved(true);
