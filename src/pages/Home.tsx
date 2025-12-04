@@ -145,17 +145,15 @@ const Home = () => {
               discover, register, and participate in amazing college events.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              {!user && (
-                <Link to="/signup">
-                  <Button
-                    size="lg"
-                    className="bg-gradient-hero hover:opacity-90 transition-opacity text-lg px-8 shadow-glow"
-                  >
-                    Create Account
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
-              )}
+              <Link to="/signup">
+                <Button
+                  size="lg"
+                  className="bg-gradient-hero hover:opacity-90 transition-opacity text-lg px-8 shadow-glow"
+                >
+                  Create Account
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
               <Link to="/events">
                 <Button
                   size="lg"
@@ -169,8 +167,69 @@ const Home = () => {
           </div>
         </div>
       </section>
+      {/* Upcoming Events (visible to all users) */}
+      <section className="py-16 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Upcoming Events
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Here are the upcoming events you can join!
+            </p>
+          </div>
+          {loadingEvents ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground text-lg">Loading events...</p>
+            </div>
+          ) : events.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground text-lg">
+                No upcoming events found.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {events
+                  .filter((event) => {
+                    const status = getEventStatus(event.date);
+                    return status === "upcoming" || status === "tomorrow";
+                  })
+                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                  .slice(0, 3)
+                  .map((event) => (
+                    <EventCard
+                      key={event.id}
+                      name={event.title}
+                      venue={event.location || ""}
+                      formattedDate={formatDate(event.date)}
+                      time={formatTimeRange(event.time, event.end_time)}
+                      collegeName={event.university_name || ""}
+                      image={event.image || ""}
+                      status={getEventStatus(event.date)}
+                      description={event.description}
+                      onRegister={() => handleRegister(event.id)}
+                      isRegistered={registrations.includes(event.id)}
+                      isFirstTime={registrations.length === 0}
+                      onCancel={() => handleCancel(event.id)}
+                    />
+                  ))}
+              </div>
+              <div className="flex justify-center mt-8">
+                <Link to="/events">
+                  <Button size="lg" className="bg-gradient-hero hover:opacity-90 transition-opacity text-lg px-8 shadow-glow">
+                    Explore All Events
+                  </Button>
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
       {/* Conditional Section */}
-      {!user ? (
+      { !user && (
         <>
           {/* Features Section */}
           <section className="py-16 bg-muted/30">
@@ -241,67 +300,6 @@ const Home = () => {
             </div>
           </section>
         </>
-      ) : (
-        // Show only 3 upcoming or tomorrow events for logged-in users (no today's events)
-        <section className="py-16 bg-muted/30">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Upcoming Events
-              </h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
-                Here are the upcoming events you can join!
-              </p>
-            </div>
-            {loadingEvents ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground text-lg">Loading events...</p>
-              </div>
-            ) : events.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground text-lg">
-                  No upcoming events found.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {events
-                    .filter((event) => {
-                      const status = getEventStatus(event.date);
-                      return status === "upcoming" || status === "tomorrow";
-                    })
-                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                    .slice(0, 3)
-                    .map((event) => (
-                      <EventCard
-                        key={event.id}
-                        name={event.title}
-                        venue={event.location || ""}
-                        formattedDate={formatDate(event.date)}
-                        time={formatTimeRange(event.time, event.end_time)}
-                        collegeName={event.university_name || ""}
-                        image={event.image || ""}
-                        status={getEventStatus(event.date)}
-                        description={event.description}
-                        onRegister={() => handleRegister(event.id)}
-                        isRegistered={registrations.includes(event.id)}
-                        isFirstTime={registrations.length === 0}
-                        onCancel={() => handleCancel(event.id)}
-                      />
-                    ))}
-                </div>
-                <div className="flex justify-center mt-8">
-                  <Link to="/events">
-                    <Button size="lg" className="bg-gradient-hero hover:opacity-90 transition-opacity text-lg px-8 shadow-glow">
-                      Explore All Events
-                    </Button>
-                  </Link>
-                </div>
-              </>
-            )}
-          </div>
-        </section>
       )}
       <Footer />
     </div>

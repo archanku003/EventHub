@@ -13,6 +13,8 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import StudentRegistration from "@/components/StudentRegistration";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 // Converts "02 October 2025" to "2025-10-02"
 function eventDateFromFormatted(formatted: string) {
@@ -137,9 +139,23 @@ const EventCard: React.FC<EventCardProps> = ({
     setDetailsOpen(true);
   };
 
-  const handleRegisterClick = (e: React.MouseEvent) => {
+  const navigate = useNavigate();
+  const handleRegisterClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setStudentRegOpen(true);
+    try {
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user ?? null;
+      if (!user) {
+        // Redirect unauthenticated users to signup; include redirect back to events
+        const redirect = encodeURIComponent("/events");
+        navigate(`/signup?redirect=${redirect}`);
+        return;
+      }
+      setStudentRegOpen(true);
+    } catch (err) {
+      // On error, fallback to redirect to signup
+      navigate(`/signup?redirect=${encodeURIComponent("/events")}`);
+    }
   };
 
   const handleCancelClick = (e: React.MouseEvent) => {
@@ -281,10 +297,7 @@ const EventCard: React.FC<EventCardProps> = ({
                     <>
                       <Button
                         className="w-full bg-gradient-hero hover:opacity-90 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setStudentRegOpen(true);
-                        }}
+                        onClick={handleRegisterClick}
                       >
                         Register Now
                       </Button>

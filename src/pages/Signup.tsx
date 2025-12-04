@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { isGmailEmail } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +10,9 @@ import { useToast } from "@/hooks/use-toast";
 
 const Signup = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const redirectTo = params.get("redirect") ?? "/";
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     name: "",
@@ -20,6 +24,16 @@ const Signup = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Normalize email (trim + lowercase) and enforce Gmail-only addresses
+    const email = (formData.email || "").trim().toLowerCase();
+    if (!isGmailEmail(email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please use a valid Gmail address (example@gmail.com).",
+        variant: "destructive",
+      });
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Error",
@@ -31,7 +45,7 @@ const Signup = () => {
 
     // Supabase sign up
     const { data, error } = await supabase.auth.signUp({
-      email: formData.email,
+      email,
       password: formData.password,
     });
 
@@ -51,7 +65,7 @@ const Signup = () => {
         {
           id: user.id,
           name: formData.name,
-          email: formData.email,
+          email,
         },
       ]);
       if (insertError) {
@@ -68,7 +82,7 @@ const Signup = () => {
       title: "Account Created!",
       description: "Welcome to EventHub",
     });
-    navigate("/");
+    navigate(redirectTo);
   };
 
   return (
